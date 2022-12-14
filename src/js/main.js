@@ -3,17 +3,18 @@ import 'simplelightbox/dist/simple-lightbox.min.css';
 import Notiflix from 'notiflix';
 import { imageCreate } from './imageCreate';
 import { getRefs } from './refs';
+import { fetchImages, page, perPage, resetPage } from './imgAPI.js';
 
 const refs = getRefs();
+
 const optionsSL = {
   overlayOpacity: 0.5,
   captionsData: 'alt',
   captionDelay: 250,
 };
 
-let simpleLightbox;
-
-import { fetchImages, page, perPage, resetPage } from './imgAPI.js';
+let gallery = new SimpleLightbox('.gallery a', optionsSL);
+gallery.on('show.simplelightbox');
 
 let searchValue = '';
 
@@ -24,9 +25,10 @@ async function onSearch(e) {
   e.preventDefault();
   searchValue = e.currentTarget.elements.searchQuery.value.trim();
   if (searchValue === '') {
+    refs.searchForm.reset();
     clearAll();
     buttonHidden();
-    Notify.info('You cannot search by empty field, try again.');
+    messageEmpty();
     return;
   } else {
     try {
@@ -36,13 +38,11 @@ async function onSearch(e) {
         refs.searchForm.reset();
         clearAll();
         buttonHidden();
-        Notiflix.Notify.failure(
-          'Sorry, there are no images matching your search query. Please try again.'
-        );
+        messageFailure();
       } else {
         refs.searchForm.reset();
         refs.gallery.innerHTML = imageCreate(result.hits);
-        simpleLightbox = new SimpleLightbox('.gallery a', optionsSL).refresh();
+        gallery.refresh();
         buttonUnHidden();
         Notiflix.Notify.success(`Hooray! We found ${result.totalHits} images.`);
       }
@@ -53,21 +53,16 @@ async function onSearch(e) {
 }
 
 async function onNextImagesAdd() {
-  simpleLightbox.destroy();
   try {
     const result = await fetchImages(searchValue);
     const totalPages = page * perPage;
     if (result.totalHits <= totalPages) {
-      Notiflix.Report.info(
-        'Wow',
-        "We're sorry, but you've reached the end of search results.",
-        'Okay'
-      );
       buttonHidden();
+      messageEndResalts();
     }
     refs.gallery.insertAdjacentHTML('beforeend', imageCreate(result.hits));
     smothScroll();
-    simpleLightbox = new SimpleLightbox('.gallery a', optionsSL).refresh();
+    gallery.refresh();
   } catch (error) {
     ifError();
   }
@@ -78,7 +73,7 @@ function clearAll() {
 }
 
 function buttonHidden() {
-  refs.btnLoadMore.classList.add('hidden');
+  refs.btnLoadMore.classList.add('visually-hidden');
 }
 
 function buttonUnHidden() {
@@ -99,4 +94,26 @@ function smothScroll() {
     top: cardHeight * 3.9,
     behavior: 'smooth',
   });
+}
+
+function messageEmpty() {
+  Notiflix.Report.info(
+    'Wow',
+    "We're sorry, but you cannot search by empty field.",
+    'Try again'
+  );
+}
+
+function messageFailure() {
+  Notiflix.Notify.failure(
+    'Sorry, there are no images matching your search query. Please try again.'
+  );
+}
+
+function messageEndResalts() {
+  Notiflix.Report.info(
+    'Wow',
+    "We're sorry, but you've reached the end of search results.",
+    'Okay'
+  );
 }
